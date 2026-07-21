@@ -20,19 +20,21 @@ Onion Agent 基于洋葱架构,本项目分 5 层。本脚本位于第 5 层 (L5
     |-- AGENT.md             系统提示词 / 行为约束
     |-- SOUL.md              智能体灵魂(身份、性格、主人信息)
     |-- MEMORY.md            从每日记忆精炼的长期记忆(必须加载,<=10000 Token)
-    |-- HEARTBEAT.jsonl      定时任务(每行一个 heartbeat item,事件编排器写入)
-    |-- PLAN.jsonl           计划看板(每行一个 plan item,Agent Loop update_plan 工具写入)
+    |-- heartbeat.jsonl      定时任务(每行一个 heartbeat item,事件编排器写入)
+    |-- plan.jsonl           计划看板(每行一个 plan item,Agent Loop update_plan 工具写入)
     |-- tools.jsonl          工具列表(每行一个 JSON 对象)
     |-- memory/YYYYMMDD.md   每日记忆(grep 加载,<=10000 Token)
     |-- skills/              存放多个 Agent Skills
     |-- mcp_servers.json     MCP server 配置(需本地装 uv 和 nodeJS)
 
+    命名规则:.md 全大写,.jsonl 全小写,严格遵循 prompt.md 目录树。
+
 三态判断("无则增,有则修"):
     1. absent      - 目录路径不存在 -> 创建并初始化
     2. empty       - 目录存在但零内容 -> 直接初始化
-    3. populated   - 目录存在且有内容 -> 智能验证(测模型 + 加载 session + 存活检查)
+    3. populated   - 目录存在且有内容 -> 智能验证(测模型 + 加载全部 jsonl + 存活检查)
                        * provider.toml 中的模型必须用 openai 库测试可用
-                       * session.jsonl 必须能加载为 json list
+                       * 4 个 jsonl(session / heartbeat / plan / tools)必须能加载为 json list
                        * 其他文件/目录只做存活检查(保证有即可,不管内容)
 
 ================================================================================
@@ -152,17 +154,25 @@ WINDOWS_RESERVED_NAMES = frozenset({
 # 工作区必需的目录
 REQUIRED_DIRS = ("memory", "skills")
 
-# 工作区必需的文件(全部大写 .md + 几个 .jsonl/.json/.toml)
+# 工作区必需的文件(.md 全大写,.jsonl 全小写,严格遵循 prompt.md 中的目录树)
 REQUIRED_FILES = (
+    "session.jsonl",     # 唯一会话文件
+    "provider.toml",     # 模型配置
+    "AGENT.md",          # 系统提示词 / 行为约束
+    "SOUL.md",           # 灵魂 / 主人信息
+    "MEMORY.md",         # 长期记忆 (<=10000 Token)
+    "heartbeat.jsonl",   # 定时任务(事件编排器写入)
+    "plan.jsonl",        # 计划看板(update_plan 工具写入)
+    "tools.jsonl",       # 工具列表
+    "mcp_servers.json",  # MCP server 配置
+)
+
+# verify 阶段需要"加载为 json list"的 4 个 jsonl 文件
+JSONL_FILES = (
     "session.jsonl",
-    "provider.toml",
-    "AGENT.md",
-    "SOUL.md",
-    "MEMORY.md",
-    "HEARTBEAT.jsonl",
-    "PLAN.jsonl",
+    "heartbeat.jsonl",
+    "plan.jsonl",
     "tools.jsonl",
-    "mcp_servers.json",
 )
 
 # 退出码
@@ -259,28 +269,24 @@ MEMORY_MD_PLACEHOLDER = """# 长期记忆 (MEMORY.md)
 """
 
 
-HEARTBEAT_JSONL_PLACEHOLDER = ""  # 空 HEARTBEAT.jsonl,事件编排器启动后按需 append
+HEARTBEAT_JSONL_PLACEHOLDER = ""  # 空 heartbeat.jsonl,事件编排器启动后按需 append
 
 
-PLAN_JSONL_PLACEHOLDER = ""  # 空 PLAN.jsonl,update_plan 工具启动后按需 append
+PLAN_JSONL_PLACEHOLDER = ""  # 空 plan.jsonl,update_plan 工具启动后按需 append
 
 
 MCP_SERVERS_TEMPLATE = {
-    "mcpServers": {
-        "filesystem": {
-            "name": "filesystem",
-            "description": "本地文件系统访问 - 读取、写入、创建、删除文件和目录",
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
-            "env": {},
-            "isActive": True,
-            "type": "stdio",
-            "provider": "modelcontextprotocol",
-            "providerUrl": "https://github.com/modelcontextprotocol/servers",
-            "logoUrl": "",
-            "tags": ["filesystem", "file", "read", "write"],
-        }
-    },
+    "mcpServers": {},
+    "_comment": (
+        "请在此处按 MCP 协议添加 server。示例(取消注释即可启用 filesystem server):\n"
+        '# "filesystem": {\n'
+        '#   "command": "npx",\n'
+        '#   "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],\n'
+        '#   "isActive": true,\n'
+        '#   "type": "stdio"\n'
+        '# }\n'
+        "注意:启用前需先在系统本地安装 uv 和 nodeJS。"
+    ),
 }
 
 
@@ -321,14 +327,11 @@ def _parse_image_flag(value: str) -> bool:
     """
     --image 参数解析:yes/y/true → True,no/n/false → False,其他值报错。
 
-    注意:--image 是必传项(由 argparse required=True 强制),
-    本函数只负责把字符串转 bool。
+    按 prompt.md 规格,默认值是 no(即 False)。如果用户没传 --image,args.image == False。
     """
     if value is None:
-        # argparse 在 required=True 时不会传 None,这里作为保险
-        raise argparse.ArgumentTypeError(
-            "--image 必须显式传参,合法值: yes/y/true (支持) / no/n/false (不支持)"
-        )
+        # argparse 在 default=False 时不会传 None,这里作为保险
+        return False
     v = value.strip().lower()
     if v in ("yes", "y", "true", "1"):
         return True
@@ -473,10 +476,10 @@ def init_workspace_files(
     # 4. SOUL.md
     _atomic_write_text(workspace / "SOUL.md", _soul_md_template(name))
 
-    # 5. 空白模板:1 个 .md (MEMORY) + 2 个 .jsonl (HEARTBEAT, PLAN)
+    # 5. 空白模板:1 个 .md (MEMORY) + 2 个 .jsonl (heartbeat, plan)
     _atomic_write_text(workspace / "MEMORY.md", MEMORY_MD_PLACEHOLDER)
-    _atomic_write_text(workspace / "HEARTBEAT.jsonl", HEARTBEAT_JSONL_PLACEHOLDER)
-    _atomic_write_text(workspace / "PLAN.jsonl", PLAN_JSONL_PLACEHOLDER)
+    _atomic_write_text(workspace / "heartbeat.jsonl", HEARTBEAT_JSONL_PLACEHOLDER)
+    _atomic_write_text(workspace / "plan.jsonl", PLAN_JSONL_PLACEHOLDER)
 
     # 6. tools.jsonl(空,每行一个 JSON 对象)
     _atomic_write_text(workspace / "tools.jsonl", "")
@@ -584,41 +587,65 @@ def _test_model_with_openai(url: str, key: str, model_name: str) -> Tuple[bool, 
         return False, f"chat.completions 调用失败: {type(e).__name__}: {e}"
 
 
-def _load_session_jsonl(workspace: Path) -> Tuple[bool, str]:
+def _load_jsonl_file(path: Path) -> Tuple[bool, str, list]:
     """
-    尝试加载 session.jsonl 为 json list。
-    返回 (success, error_message)。
-    空文件 -> 视为空 list,合法。
+    加载单个 .jsonl 文件为 json list。
+
+    返回 (success, error_message, loaded_list)。
+    - 文件不存在 → (False, "... 不存在", [])
+    - 空文件 / 全空白行 → (True, "", [])  ← 空文件视为空 list,不报错
+    - 任何一行 JSON 解析失败 → (False, "第 N 行 ...", [])
+    - 任何一行不是 dict → (False, "第 N 行不是 JSON object", [])
     """
-    path = workspace / "session.jsonl"
     if not path.exists():
-        return False, "session.jsonl 不存在"
+        return False, f"{path.name} 不存在", []
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        # 用 utf-8-sig 兼容 Windows 工具(如 PowerShell Set-Content)写入的 BOM 文件
+        with open(path, "r", encoding="utf-8-sig") as f:
             lines = [ln for ln in (line.rstrip("\n") for line in f) if ln.strip()]
-        loaded = []
-        for idx, line in enumerate(lines, start=1):
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError as e:
-                return False, f"session.jsonl 第 {idx} 行 JSON 解析失败: {e}"
-            if not isinstance(obj, dict):
-                return False, f"session.jsonl 第 {idx} 行不是 JSON object: {type(obj).__name__}"
-            loaded.append(obj)
-        logger.info("  · session.jsonl 加载 %d 条消息", len(loaded))
-        return True, ""
     except OSError as e:
-        return False, f"读取 session.jsonl 失败: {e}"
+        return False, f"读取 {path.name} 失败: {e}", []
+
+    loaded = []
+    for idx, line in enumerate(lines, start=1):
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError as e:
+            return False, f"{path.name} 第 {idx} 行 JSON 解析失败: {e}", []
+        if not isinstance(obj, dict):
+            return False, (
+                f"{path.name} 第 {idx} 行不是 JSON object: {type(obj).__name__}"
+            ), []
+        loaded.append(obj)
+    return True, "", loaded
+
+
+def _load_all_jsonl(workspace: Path) -> Tuple[bool, list]:
+    """
+    加载全部 4 个 jsonl 为 json list (session / heartbeat / plan / tools)。
+    任何一个失败立即返回 (False, [...]);全部成功返回 (True, [(name, count), ...])。
+    空 jsonl 视为空 list,合法,不算失败。
+    """
+    results = []
+    for name in JSONL_FILES:
+        ok, err, loaded = _load_jsonl_file(workspace / name)
+        if not ok:
+            return False, [(name, err)]
+        results.append((name, len(loaded)))
+    return True, results
 
 
 def _liveness_check(workspace: Path) -> Tuple[bool, list]:
     """
-    工作区其他文件/目录只做存活检查。
+    工作区其他文件/目录只做存活检查(不做就绪检查)。
+    - 跳过:provider.toml(有专门检查)+ 4 个 jsonl(已在上一步加载验证)
+    - 检查:.md / mcp_servers.json 是否存在,子目录 memory/ skills/ 是否是目录
     返回 (ok, missing_list)。
     """
+    skip = {"provider.toml", *JSONL_FILES}
     missing = []
     for f in REQUIRED_FILES:
-        if f in ("session.jsonl", "provider.toml"):  # 这两个有专门检查
+        if f in skip:
             continue
         if not (workspace / f).exists():
             missing.append(f)
@@ -632,7 +659,7 @@ def verify_workspace(workspace: Path) -> int:
     """
     智能验证已存在的工作区。
     1. 测试 provider.toml 中的模型(用 openai 库)
-    2. 加载 session.jsonl 为 json list
+    2. 加载 4 个 jsonl 为 json list(session / heartbeat / plan / tools)
     3. 其他文件/目录做存活检查
     """
     logger.info("=" * 60)
@@ -653,13 +680,16 @@ def verify_workspace(workspace: Path) -> int:
         return EXIT_MODEL_FAIL
     logger.info("[OK] 模型 %s 可用", cfg["model_name"])
 
-    # 2. 加载 session.jsonl
-    logger.info("[2/3] 加载 session.jsonl...")
-    ok, err = _load_session_jsonl(workspace)
+    # 2. 加载全部 jsonl
+    logger.info("[2/3] 加载 4 个 jsonl (session/heartbeat/plan/tools)...")
+    ok, results = _load_all_jsonl(workspace)
     if not ok:
-        logger.error("[FAIL] session.jsonl 加载失败: %s", err)
+        # results 是 [(name, err_msg)] 单元素列表
+        name, err = results[0]
+        logger.error("[FAIL] %s 加载失败: %s", name, err)
         return EXIT_SESSION_FAIL
-    logger.info("[OK] session.jsonl 完整")
+    for name, count in results:
+        logger.info("  · %s 加载 %d 条记录", name, count)
 
     # 3. 存活检查
     logger.info("[3/3] 存活检查...")
@@ -756,12 +786,14 @@ def _build_argparser() -> argparse.ArgumentParser:
             "    |-- AGENT.md        系统提示词 / 行为约束\n"
             "    |-- SOUL.md         灵魂 / 主人信息\n"
             "    |-- MEMORY.md       长期记忆 (<=10000 Token)\n"
-            "    |-- HEARTBEAT.jsonl  定时任务\n"
-            "    |-- PLAN.jsonl      计划看板(update_plan 工具写入)\n"
+            "    |-- heartbeat.jsonl 定时任务\n"
+            "    |-- plan.jsonl      计划看板(update_plan 工具写入)\n"
             "    |-- tools.jsonl     工具列表\n"
             "    |-- memory/         每日记忆 (YYYYMMDD.md)\n"
             "    |-- skills/         Agent Skills\n"
             "    |-- mcp_servers.json  MCP server 配置\n"
+            "\n"
+            "命名规则:.md 全大写,.jsonl 全小写。"
         ),
     )
     p.add_argument("-n", "--name", required=True, help="智能体名称(小写字母/数字/下划线,不能以数字开头)")
@@ -772,12 +804,12 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("-c", "--context", type=int, default=0, help="大模型上下文长度,如 1M Token 填 1000000")
     p.add_argument(
         "-i", "--image",
-        default=None,
+        default=False,
         type=_parse_image_flag,
         metavar="{yes,no}",
         help=(
             "大模型能理解图片 VLM。yes/y/true 表示支持,no/n/false 表示不支持。"
-            "init 新工作区时必传,verify 已有工作区时可省略(从 provider.toml 读取)。"
+            "默认值是 no。如果想用 VLM 能力请显式传 yes/y/true。"
         ),
     )
     p.add_argument(
@@ -818,8 +850,7 @@ def main(argv: Optional[list] = None) -> int:
             missing.append("--model")
         if not args.context:
             missing.append("--context")
-        if args.image is None:
-            missing.append("--image")
+        # --image 默认 False(no),不强制要求传
         if missing:
             logger.error(
                 "参数错误:初始化新工作区需要提供模型参数,缺失: %s", ", ".join(missing)

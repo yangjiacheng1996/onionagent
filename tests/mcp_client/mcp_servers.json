@@ -1,0 +1,44 @@
+{
+    "mcpServers": {
+        "filesystem": {
+            "name": "filesystem",
+            "description": "本地文件系统访问 - 读取、写入、创建、删除文件和目录",
+            "baseUrl": "",
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:/"],
+            "env": {},
+            "isActive": true,
+            "type": "stdio",
+            "provider": "modelcontextprotocol",
+            "providerUrl": "https://github.com/modelcontextprotocol/servers",
+            "logoUrl": "",
+            "tags": ["filesystem", "file", "read", "write"]
+        },
+        "sequentialthinking": {
+            "name": "sequentialthinking",
+            "description": "An MCP server for sequential thinking tools",
+            "baseUrl": "",
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+            "env": {},
+            "isActive": true,
+            "type": "stdio",
+            "provider": "modelcontextprotocol",
+            "providerUrl": "https://github.com/modelcontextprotocol/servers",
+            "logoUrl": "",
+            "tags": ["thinking", "sequential"]
+        },
+        "searxng": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"mcp-searxng"
+			],
+			"env": {
+				"SEARXNG_URL": "https://searxng.miyacloud.com"
+			},
+			"isActive": true,
+            "type": "stdio"
+		} 
+    }
+}

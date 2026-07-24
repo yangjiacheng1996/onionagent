@@ -1,0 +1,10 @@
+[
+  {
+    "id": "call_truncate_1",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.read_file",
+      "arguments": "{\"path\": \"C:\\\\workspace\\\\github\\\\onionagent\\\\src\\\\infrastructure\\\\tool_channel\\\\tool_list.py\"}"
+    }
+  }
+]

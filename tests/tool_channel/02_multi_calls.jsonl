@@ -1,0 +1,3 @@
+{"id": "call_multi_1", "type": "function", "function": {"name": "onion.buildin.file_system.read_file", "arguments": "{\"path\": \"C:\\\\workspace\\\\github\\\\onionagent\\\\src\\\\infrastructure\\\\tool_channel\\\\tool_list.py\", \"max_chars\": 500}"}}
+{"id": "call_multi_2", "type": "function", "function": {"name": "onion.buildin.command_line.run_command", "arguments": "{\"command\": \"echo hello-from-router\", \"timeout\": 5}"}}
+{"id": "call_multi_3", "type": "function", "function": {"name": "onion.buildin.file_system.get_properties", "arguments": "{\"path\": \"C:\\\\workspace\\\\github\\\\onionagent\\\\src\\\\infrastructure\\\\tool_channel\"}"}}

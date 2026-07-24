@@ -1,0 +1,10 @@
+[
+  {
+    "id": "call_case_1",
+    "type": "function",
+    "function": {
+      "name": "ONION.BUILDIN.FILE_SYSTEM.READ_FILE",
+      "arguments": "{\"path\": \"C:\\\\workspace\\\\github\\\\onionagent\\\\README.md\"}"
+    }
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "call_err_unknown_tool",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.does_not_exist",
+      "arguments": "{}"
+    }
+  },
+  {
+    "id": "call_err_bad_name",
+    "type": "function",
+    "function": {
+      "name": "read_file",
+      "arguments": "{\"path\": \"/etc/hosts\"}"
+    }
+  },
+  {
+    "id": "call_err_missing_required",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.read_file",
+      "arguments": "{}"
+    }
+  },
+  {
+    "id": "call_err_extra_field",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.read_file",
+      "arguments": "{\"path\": \"C:/tmp/test.txt\", \"extra_field\": \"not_in_schema\"}"
+    }
+  },
+  {
+    "id": "call_err_wrong_type",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.read_file",
+      "arguments": "{\"path\": 12345}"
+    }
+  },
+  {
+    "id": "call_err_broken_json",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.list_dir",
+      "arguments": "{\"path\": \"C:"
+    }
+  },
+  {
+    "id": "call_err_unknown_after_json_repair",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.list_dir",
+      "arguments": "[]"
+    }
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "call_with_id_1",
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.list_dir",
+      "arguments": "{\"path\": \"C:\\\\workspace\\\\github\\\\onionagent\\\\src\\\\infrastructure\\\\tool_channel\"}"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "onion.buildin.file_system.read_file",
+      "arguments": "{\"path\": \"C:\\\\workspace\\\\github\\\\onionagent\\\\src\\\\infrastructure\\\\tool_channel\\\\tool_list.py\", \"max_chars\": 100}"
+    }
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "version": "",
+  "download_url": "",
+  "installed_at": "",
+  "channel": "chromium",
+  "compatible_playwright_version": "",
+  "note": "未安装内置 Chromium 时为空。需要安装请参考 INSTALL.md"
+}

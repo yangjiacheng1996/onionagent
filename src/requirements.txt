@@ -1,1 +1,23 @@
+# Onion Agent - 核心依赖
+# MVP 阶段最小化:只列项目直接 import 的库
+# 详细依赖解析见各模块顶部的"依赖"注释
+
+# === L5 Infrastructure / file_backend ===
+# openai:大模型客户端(L4 引擎层也用,L5 init_workspace.py 测模型用)
 openai>1.0.0
+
+# === L5 Infrastructure / tool_shell ===
+# mcp:Model Context Protocol 官方 Python SDK(MCP 客户端依赖)
+mcp>=1.0.0
+
+# PyYAML:Agent Skills 的 SKILL.md frontmatter 解析
+PyYAML>=6.0
+
+# httpx:async HTTP 客户端(MCP SSE/streamableHttp transport 依赖)
+httpx>=0.27
+
+# requests:buildin 工具 non_head_browser 的 HTTP 客户端(web_search/web_fetch)
+requests>=2.30
+
+# pydantic:buildin 工具 / L4 引擎层的 args schema 校验与反射
+pydantic>=2.0
